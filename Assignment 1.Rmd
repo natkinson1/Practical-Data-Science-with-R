@@ -1,0 +1,131 @@
+---
+title: "Assignment 1"
+author: "Nikhil Atkinson"
+date: "24 January 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r, include=FALSE}
+library(corrplot)
+library(MASS)
+```
+
+```{r, include=FALSE}
+tumour_data <- read.csv("tumour.csv")
+```
+
+```{r, include=FALSE}
+head(tumour_data)
+```
+# Investigating the correlation of each variable
+
+```{r, echo=FALSE, fig.height=5, fig.width=5, fig.align='center'}
+corrplot(cor(tumour_data[,-2]), method="color")
+```
+
+Many of the variables are strongly positively correlated with each other and with few being negatively correlated. We want to remove correlated variables when making a model as they tell little new information about the data. If we increased the amount of dimensions, we would need more data to not make a model which was over fitting.
+
+```{r, include=FALSE}
+pca_tumour <- prcomp(tumour_data[,-2])
+```
+
+## Unscaled
+```{r, echo=FALSE, fig.height=5, fig.width=10}
+plot(pca_tumour$x[,1],
+     pca_tumour$x[,2],
+     col=tumour_data$diagnosis,
+     xlab="PC1",
+     ylab="PC2",
+     pch=20, main = "Unscaled")
+legend("bottom",
+       legend=unique(tumour_data$diagnosis),
+       col=unique(tumour_data$diagnosis), pch=20)
+```
+This is showing a very poor separation between the 2 types of diagnosis. There are 3 clear splits of the scores plots for PC1, this is due to high values which have contributed a lot to the variance. We will want to scale the data before performing PCA so that we can maximize the variance of each component.
+
+```{r, include=FALSE}
+pca_tumour_scaled <- prcomp(tumour_data[,-2], scale = TRUE)
+```
+## Scaled
+```{r, echo=FALSE, fig.height=5, fig.width=10}
+plot(pca_tumour_scaled$x[,1],
+     pca_tumour_scaled$x[,2],
+     col=tumour_data$diagnosis,
+     pch=20,
+     xlab="PC1",
+     ylab="PC2",
+     main="Scaled")
+
+legend("topright",
+       legend=unique(tumour_data$diagnosis),
+       col=unique(tumour_data$diagnosis),
+       pch=20)
+```
+This looks much better as the data is evenly distributed and there is a higher variance between each principal component. Further to this it shows a good separation between the Benign and Malignant diagnosis.
+
+
+```{r, echo=FALSE, fig.width=5, fig.height=5, fig.align='center'}
+corrplot(cor(pca_tumour_scaled$x), method="color")
+```
+This is a correlation map showing the correlation between principal components. This shows that each feature is uncorrelated which is what we would expect as principal component analysis produces uncorrelated variables.
+
+```{r, echo=FALSE}
+barplot(pca_tumour_scaled$sdev**2,
+        xlab="Number of Principal components",
+        ylab="Proportion of Variance",
+        main = "Proportion of Variance for each PC")
+```
+
+Looking at the proportion of variance each principal component holds, I am going to choose 2 principle components as these hold the majority of the variance and choosing a 3rd wont tell us much more information about the data, further to this increasing another dimension will mean I need more data when making the lda model in order for the model to fit well.
+
+```{r, include=FALSE}
+features <- pca_tumour_scaled$x[,1:2]
+target <- tumour_data[,2]
+```
+
+```{r, include=FALSE}
+#Building my LDA model.
+lda_model <- lda(features, target, CV=TRUE)
+```
+
+# Confusion Matrix with LDA-PCA and LOOCV.
+
+```{r, echo=FALSE, fig.align='center'}
+table(predicted = lda_model$class, actual = target)
+```
+This confusion matrix shows that our model classified the majority correctly. Our model has an accuracy of 93%.
+
+# Importance of Original Variables.
+```{r, echo=FALSE, fig.height=6, fig.width=10}
+plot(pca_tumour_scaled$x[,1],
+     pca_tumour_scaled$x[,2],
+     col=tumour_data$diagnosis,
+     xlab="PC1",
+     ylab="PC2",
+     main="Scores plot",
+     pch=20)
+
+legend("topright",
+       legend=unique(tumour_data$diagnosis),
+       col=unique(tumour_data$diagnosis),
+       pch=20)
+```
+This is the best separation that can be obtained. Note that PC1 is the principle component which separates the variables the best, so let's look at PC1's loadings to see which variables contribute most to the separation.
+
+```{r, echo=FALSE}
+important_var <- sort(abs(pca_tumour_scaled$rotation[,1]), decreasing=TRUE)
+important_var[1:7]
+```
+
+These are our most important variables for separation between the Benign and Malignant diagnosis. Each of them have similar importance.
+
+\newpage
+
+#Appendix Code (for referencing)
+
+```{r code=readLines(knitr::purl('Assignment 1.Rmd', documentation = 0)), eval = FALSE}
+
+```
+
+
